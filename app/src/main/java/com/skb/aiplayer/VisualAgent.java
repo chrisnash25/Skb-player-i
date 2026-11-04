@@ -20,6 +20,9 @@ public final class VisualAgent {
     private int cycles;
     private int failures;
     private String key;
+    private boolean fingerDown;
+    private long fingerStart;
+    private float fingerX, fingerY;
     private long started;
     private static final int MAX_CYCLES = 30;
     private static final long MAX_RUNTIME_MS = 180000;
@@ -45,6 +48,9 @@ public final class VisualAgent {
     public void stop() {
         running=false;
         handler.removeCallbacksAndMessages(null);
+        if (fingerDown) {
+            send(fingerStart,SystemClock.uptimeMillis(),MotionEvent.ACTION_UP,fingerX,fingerY);
+        }
         status.update("Visual agent stopped.");
     }
     private void observe() {
@@ -109,7 +115,12 @@ public final class VisualAgent {
         handler.postDelayed(() -> send(t,SystemClock.uptimeMillis(),MotionEvent.ACTION_UP,tx,ty), duration);
     }
     private void send(long down,long time,int action,float x,float y) {
+        if (action==MotionEvent.ACTION_DOWN) { fingerDown=true; fingerStart=down; }
+        fingerX=x; fingerY=y;
         MotionEvent event=MotionEvent.obtain(down,time,action,x,y,0);
-        try { web.dispatchTouchEvent(event); } finally { event.recycle(); }
+        try { web.dispatchTouchEvent(event); } finally {
+            event.recycle();
+            if (action==MotionEvent.ACTION_UP || action==MotionEvent.ACTION_CANCEL) fingerDown=false;
+        }
     }
 }
