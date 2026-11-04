@@ -9,6 +9,9 @@ import android.widget.EditText;
 import android.widget.ScrollView;
 import android.os.Bundle;
 import android.graphics.Color;
+import android.graphics.Bitmap;
+import android.graphics.Canvas;
+import android.widget.ImageView;
 import android.view.View;
 import android.view.MotionEvent;
 import android.webkit.WebChromeClient;
@@ -53,6 +56,7 @@ public final class MainActivity extends Activity {
         Button visionButton = new Button(this); visionButton.setText("Analyze Screen");
         Button aiStart = new Button(this); aiStart.setText("Start Visual AI");
         Button aiStop = new Button(this); aiStop.setText("STOP AI");
+        Button previewCapture = new Button(this); previewCapture.setText("Verify Game Vision");
         bar.addView(load); bar.addView(test); bar.addView(fullscreenButton); bar.addView(labButton);
         LinearLayout agentBar = new LinearLayout(this);
         agentBar.addView(calibrate); agentBar.addView(auto); agentBar.addView(stop);
@@ -61,6 +65,7 @@ public final class MainActivity extends Activity {
         visionBar.addView(keyButton); visionBar.addView(visionButton);
         LinearLayout aiBar = new LinearLayout(this);
         aiBar.addView(aiStart); aiBar.addView(aiStop);
+        aiBar.addView(previewCapture);
         toolbar.addView(aiBar);
         toolbar.addView(visionBar);
         toolbar.addView(bar);
@@ -84,6 +89,24 @@ public final class MainActivity extends Activity {
                 }).setNegativeButton("Cancel",null).show();
         });
         aiStop.setOnClickListener(v -> { visualAgent.stop(); touchAgent.stop(); });
+        previewCapture.setOnClickListener(v -> {
+            if (browser.getWidth() < 1 || browser.getHeight() < 1) {
+                status.setText("No visible WebView to capture."); return;
+            }
+            int width = Math.min(640,browser.getWidth());
+            int height = Math.max(1,Math.round(browser.getHeight() * width / (float)browser.getWidth()));
+            Bitmap frame = Bitmap.createBitmap(width,height,Bitmap.Config.ARGB_8888);
+            Canvas canvas = new Canvas(frame);
+            canvas.scale(width/(float)browser.getWidth(),height/(float)browser.getHeight());
+            browser.draw(canvas);
+            ImageView image = new ImageView(this);
+            image.setImageBitmap(frame);
+            image.setAdjustViewBounds(true);
+            new AlertDialog.Builder(this).setTitle("Actual WebView capture — check game video")
+                .setMessage("This is what Android captured, not what Gemini imagines. If gameplay is black or absent here, the AI cannot reliably see the game through this capture method.")
+                .setView(image)
+                .setPositiveButton("Close",null).show();
+        });
         geminiKey = getPreferences(MODE_PRIVATE).getString("gemini_key", "");
         keyButton.setOnClickListener(v -> {
             EditText input = new EditText(this);
