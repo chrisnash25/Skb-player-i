@@ -1,6 +1,7 @@
 package com.skb.aiplayer;
 
 import android.app.Activity;
+import android.content.Intent;
 import android.os.Bundle;
 import android.graphics.Color;
 import android.view.View;
@@ -33,7 +34,8 @@ public final class MainActivity extends Activity {
         Button load = new Button(this); load.setText("Open Xbox Cloud");
         Button test = new Button(this); test.setText("Check gamepad API");
         Button fullscreenButton = new Button(this); fullscreenButton.setText("Fullscreen");
-        bar.addView(load); bar.addView(test); bar.addView(fullscreenButton);
+        Button labButton = new Button(this); labButton.setText("AI Lab");
+        bar.addView(load); bar.addView(test); bar.addView(fullscreenButton); bar.addView(labButton);
         toolbar.addView(bar);
         root.addView(toolbar);
         browser = new WebView(this);
@@ -48,6 +50,7 @@ public final class MainActivity extends Activity {
             "(function(){return JSON.stringify({url:location.origin,gamepadAPI:!!navigator.getGamepads,connected:navigator.getGamepads?Array.from(navigator.getGamepads()).filter(Boolean).length:0})})()",
             result -> status.setText("Gamepad diagnostic: " + result)));
         fullscreenButton.setOnClickListener(v -> setFullscreen(true));
+        labButton.setOnClickListener(v -> startActivity(new Intent(this, SimulatorActivity.class)));
     }
 
     private void setFullscreen(boolean enable) {
