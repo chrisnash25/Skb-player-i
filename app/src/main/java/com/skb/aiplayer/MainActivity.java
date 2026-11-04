@@ -28,6 +28,7 @@ public final class MainActivity extends Activity {
     private boolean calibrating = false;
     private String geminiKey = "";
     private boolean visionBusy = false;
+    private VisualAgent visualAgent;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -50,12 +51,17 @@ public final class MainActivity extends Activity {
         Button stop = new Button(this); stop.setText("STOP");
         Button keyButton = new Button(this); keyButton.setText("Gemini Key");
         Button visionButton = new Button(this); visionButton.setText("Analyze Screen");
+        Button aiStart = new Button(this); aiStart.setText("Start Visual AI");
+        Button aiStop = new Button(this); aiStop.setText("STOP AI");
         bar.addView(load); bar.addView(test); bar.addView(fullscreenButton); bar.addView(labButton);
         LinearLayout agentBar = new LinearLayout(this);
         agentBar.addView(calibrate); agentBar.addView(auto); agentBar.addView(stop);
         toolbar.addView(agentBar);
         LinearLayout visionBar = new LinearLayout(this);
         visionBar.addView(keyButton); visionBar.addView(visionButton);
+        LinearLayout aiBar = new LinearLayout(this);
+        aiBar.addView(aiStart); aiBar.addView(aiStop);
+        toolbar.addView(aiBar);
         toolbar.addView(visionBar);
         toolbar.addView(bar);
         root.addView(toolbar);
@@ -67,6 +73,17 @@ public final class MainActivity extends Activity {
         root.addView(browser, new LinearLayout.LayoutParams(-1, 0, 1));
         setContentView(root);
         touchAgent = new TouchAgent(browser);
+        visualAgent = new VisualAgent(browser, message -> status.setText(message));
+        aiStart.setOnClickListener(v -> {
+            if (geminiKey.isEmpty()) { status.setText("Set Gemini key first."); return; }
+            new AlertDialog.Builder(this).setTitle("Start experimental visual agent?")
+                .setMessage("Gemini will repeatedly receive screenshots and select touch gestures for up to 30 decisions or 3 minutes. This can consume API quota. Streaming video may not be captured. It is not an Xbox gamepad. STOP AI ends the session.")
+                .setPositiveButton("Start", (dialog, which) -> {
+                    touchAgent.stop();
+                    visualAgent.start(geminiKey);
+                }).setNegativeButton("Cancel",null).show();
+        });
+        aiStop.setOnClickListener(v -> { visualAgent.stop(); touchAgent.stop(); });
         geminiKey = getPreferences(MODE_PRIVATE).getString("gemini_key", "");
         keyButton.setOnClickListener(v -> {
             EditText input = new EditText(this);
@@ -153,13 +170,20 @@ public final class MainActivity extends Activity {
     }
 
     @Override public void onBackPressed() {
+        if (visualAgent != null && visualAgent.isRunning()) { visualAgent.stop(); return; }
         if (touchAgent != null && touchAgent.isActive()) { touchAgent.stop(); return; }
         if (fullscreen) setFullscreen(false);
         else if (browser.canGoBack()) browser.goBack();
         else super.onBackPressed();
     }
 
+    @Override protected void onPause() {
+        if (visualAgent != null) visualAgent.stop();
+        super.onPause();
+    }
+
     @Override protected void onDestroy() {
+        if (visualAgent != null) visualAgent.stop();
         if (touchAgent != null) touchAgent.stop();
         browser.destroy();
         super.onDestroy();
