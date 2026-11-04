@@ -17,6 +17,9 @@ public final class GeminiVision {
     public interface Callback { void done(String result); }
     private GeminiVision() {}
     public static void analyze(WebView web, String key, Callback callback) {
+        analyze(web, key, "Describe only what is actually visible in this screenshot. Say when video content is blank or unavailable.", callback);
+    }
+    public static void analyze(WebView web, String key, String instruction, Callback callback) {
         if (key == null || key.trim().isEmpty()) { callback.done("Enter a Gemini API key first."); return; }
         if (web.getWidth() < 1 || web.getHeight() < 1) { callback.done("WebView is not visible."); return; }
         // WebView.draw may omit hardware-protected streaming video frames.
@@ -45,7 +48,7 @@ public final class GeminiVision {
                 JSONObject image = new JSONObject().put("inline_data",
                     new JSONObject().put("mime_type","image/jpeg").put("data",encoded));
                 JSONObject prompt = new JSONObject().put("text",
-                    "Describe only what is actually visible in this game screenshot. Identify player, menu, controls, obstacles and objective if visible. Say when video content is blank or unavailable. Do not claim to have controlled the game. Keep under 150 words.");
+                    instruction);
                 JSONArray parts = new JSONArray().put(prompt).put(image);
                 JSONObject body = new JSONObject().put("contents",
                     new JSONArray().put(new JSONObject().put("parts",parts)));
