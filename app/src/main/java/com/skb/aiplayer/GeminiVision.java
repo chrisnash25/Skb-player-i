@@ -67,8 +67,9 @@ public final class GeminiVision {
                     message = "Gemini error: " + detail;
                 } else {
                     JSONArray candidates = json.optJSONArray("candidates");
-                    JSONArray output = candidates != null && candidates.length()>0
-                        ? candidates.getJSONObject(0).optJSONObject("content").optJSONArray("parts") : null;
+                    JSONObject responseContent = candidates != null && candidates.length()>0
+                        ? candidates.getJSONObject(0).optJSONObject("content") : null;
+                    JSONArray output = responseContent != null ? responseContent.optJSONArray("parts") : null;
                     StringBuilder answer = new StringBuilder();
                     if (output != null) for (int i=0;i<output.length();i++)
                         answer.append(output.getJSONObject(i).optString("text"));
