@@ -32,6 +32,7 @@ public final class MainActivity extends Activity {
     private String geminiKey = "";
     private boolean visionBusy = false;
     private VisualAgent visualAgent;
+    private Button floatingStop;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -75,20 +76,31 @@ public final class MainActivity extends Activity {
         browser.getSettings().setDomStorageEnabled(true);
         browser.setWebChromeClient(new WebChromeClient());
         browser.setWebViewClient(new WebViewClient());
-        root.addView(browser, new LinearLayout.LayoutParams(-1, 0, 1));
+        android.widget.FrameLayout gameFrame = new android.widget.FrameLayout(this);
+        gameFrame.addView(browser, new android.widget.FrameLayout.LayoutParams(-1,-1));
+        floatingStop = new Button(this);
+        floatingStop.setText("STOP AI");
+        floatingStop.setVisibility(View.GONE);
+        android.widget.FrameLayout.LayoutParams stopParams = new android.widget.FrameLayout.LayoutParams(
+            -2,-2,android.view.Gravity.TOP | android.view.Gravity.RIGHT);
+        gameFrame.addView(floatingStop,stopParams);
+        root.addView(gameFrame, new LinearLayout.LayoutParams(-1, 0, 1));
         setContentView(root);
         touchAgent = new TouchAgent(browser);
         visualAgent = new VisualAgent(browser, message -> status.setText(message));
         aiStart.setOnClickListener(v -> {
             if (geminiKey.isEmpty()) { status.setText("Set Gemini key first."); return; }
             new AlertDialog.Builder(this).setTitle("Start experimental visual agent?")
-                .setMessage("Gemini will repeatedly receive screenshots and select touch gestures for up to 30 decisions or 3 minutes. This can consume API quota. Streaming video may not be captured. It is not an Xbox gamepad. STOP AI ends the session.")
+                .setMessage("Gemini will repeatedly receive screenshots and select touch gestures for up to 120 decisions or 10 minutes, subject to rate limits. This consumes API quota. Streaming video may not be captured. It is not an Xbox gamepad. STOP AI ends the session.")
                 .setPositiveButton("Start", (dialog, which) -> {
                     touchAgent.stop();
                     visualAgent.start(geminiKey);
                 }).setNegativeButton("Cancel",null).show();
         });
         aiStop.setOnClickListener(v -> { visualAgent.stop(); touchAgent.stop(); });
+        floatingStop.setOnClickListener(v -> {
+            visualAgent.stop(); touchAgent.stop(); setFullscreen(false);
+        });
         previewCapture.setOnClickListener(v -> {
             if (browser.getWidth() < 1 || browser.getHeight() < 1) {
                 status.setText("No visible WebView to capture."); return;
@@ -178,6 +190,7 @@ public final class MainActivity extends Activity {
     private void setFullscreen(boolean enable) {
         fullscreen = enable;
         toolbar.setVisibility(enable ? View.GONE : View.VISIBLE);
+        if (floatingStop != null) floatingStop.setVisibility(enable ? View.VISIBLE : View.GONE);
         if (enable) {
             getWindow().getDecorView().setSystemUiVisibility(
                 View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
