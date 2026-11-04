@@ -2,6 +2,11 @@ package com.skb.aiplayer;
 
 import android.app.Activity;
 import android.content.Intent;
+import android.app.AlertDialog;
+import android.content.SharedPreferences;
+import android.text.InputType;
+import android.widget.EditText;
+import android.widget.ScrollView;
 import android.os.Bundle;
 import android.graphics.Color;
 import android.view.View;
@@ -21,6 +26,8 @@ public final class MainActivity extends Activity {
     private boolean fullscreen = false;
     private TouchAgent touchAgent;
     private boolean calibrating = false;
+    private String geminiKey = "";
+    private boolean visionBusy = false;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -41,10 +48,15 @@ public final class MainActivity extends Activity {
         Button calibrate = new Button(this); calibrate.setText("Set Touch");
         Button auto = new Button(this); auto.setText("Auto Tap");
         Button stop = new Button(this); stop.setText("STOP");
+        Button keyButton = new Button(this); keyButton.setText("Gemini Key");
+        Button visionButton = new Button(this); visionButton.setText("Analyze Screen");
         bar.addView(load); bar.addView(test); bar.addView(fullscreenButton); bar.addView(labButton);
         LinearLayout agentBar = new LinearLayout(this);
         agentBar.addView(calibrate); agentBar.addView(auto); agentBar.addView(stop);
         toolbar.addView(agentBar);
+        LinearLayout visionBar = new LinearLayout(this);
+        visionBar.addView(keyButton); visionBar.addView(visionButton);
+        toolbar.addView(visionBar);
         toolbar.addView(bar);
         root.addView(toolbar);
         browser = new WebView(this);
@@ -55,6 +67,43 @@ public final class MainActivity extends Activity {
         root.addView(browser, new LinearLayout.LayoutParams(-1, 0, 1));
         setContentView(root);
         touchAgent = new TouchAgent(browser);
+        geminiKey = getPreferences(MODE_PRIVATE).getString("gemini_key", "");
+        keyButton.setOnClickListener(v -> {
+            EditText input = new EditText(this);
+            input.setSingleLine(true);
+            input.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+            input.setHint("Paste your Gemini API key");
+            input.setText(geminiKey);
+            new AlertDialog.Builder(this).setTitle("Gemini API key (stored on this device)")
+                .setView(input)
+                .setPositiveButton("Save", (dialog, which) -> {
+                    geminiKey = input.getText().toString().trim();
+                    getPreferences(MODE_PRIVATE).edit().putString("gemini_key", geminiKey).apply();
+                    status.setText("Gemini key saved locally. Tap Analyze Screen to send one screenshot.");
+                })
+                .setNeutralButton("Delete", (dialog, which) -> {
+                    geminiKey = "";
+                    getPreferences(MODE_PRIVATE).edit().remove("gemini_key").apply();
+                    status.setText("Gemini key deleted from app preferences.");
+                })
+                .setNegativeButton("Cancel", null).show();
+        });
+        visionButton.setOnClickListener(v -> {
+            if (visionBusy) return;
+            if (geminiKey.isEmpty()) { status.setText("Set your Gemini key first."); return; }
+            new AlertDialog.Builder(this).setTitle("Send screenshot to Gemini?")
+                .setMessage("This sends one screenshot of the WebView to Google's Gemini API. Video may appear black. Do not send private account details.")
+                .setPositiveButton("Analyze", (dialog, which) -> {
+                    visionBusy = true;
+                    status.setText("Gemini is analyzing one captured frame...");
+                    GeminiVision.analyze(browser, geminiKey, result -> {
+                        visionBusy = false;
+                        new AlertDialog.Builder(this).setTitle("Gemini visual analysis")
+                            .setMessage(result).setPositiveButton("OK", null).show();
+                        status.setText("Visual analysis finished. No gameplay input was sent.");
+                    });
+                }).setNegativeButton("Cancel",null).show();
+        });
         touchAgent.setListener(() -> status.setText(touchAgent.isActive()
             ? "Touch test active: " + touchAgent.steps() + "/120 (1 tap/1.2s)"
             : "Touch test stopped. This is not an Xbox virtual controller."));
