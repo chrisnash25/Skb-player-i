@@ -33,6 +33,7 @@ public final class MainActivity extends Activity {
     private boolean visionBusy = false;
     private VisualAgent visualAgent;
     private Button floatingStop;
+    private ControllerEngine controllerEngine;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -58,6 +59,7 @@ public final class MainActivity extends Activity {
         Button aiStart = new Button(this); aiStart.setText("Start Visual AI");
         Button aiStop = new Button(this); aiStop.setText("STOP AI");
         Button previewCapture = new Button(this); previewCapture.setText("Verify Game Vision");
+        Button bridgeStatus = new Button(this); bridgeStatus.setText("Controller Bridge Status");
         bar.addView(load); bar.addView(test); bar.addView(fullscreenButton); bar.addView(labButton);
         LinearLayout agentBar = new LinearLayout(this);
         agentBar.addView(calibrate); agentBar.addView(auto); agentBar.addView(stop);
@@ -67,6 +69,7 @@ public final class MainActivity extends Activity {
         LinearLayout aiBar = new LinearLayout(this);
         aiBar.addView(aiStart); aiBar.addView(aiStop);
         aiBar.addView(previewCapture);
+        aiBar.addView(bridgeStatus);
         toolbar.addView(aiBar);
         toolbar.addView(visionBar);
         toolbar.addView(bar);
@@ -88,6 +91,7 @@ public final class MainActivity extends Activity {
         setContentView(root);
         touchAgent = new TouchAgent(browser);
         visualAgent = new VisualAgent(browser, message -> status.setText(message));
+        controllerEngine = new ControllerEngine();
         aiStart.setOnClickListener(v -> {
             if (geminiKey.isEmpty()) { status.setText("Set Gemini key first."); return; }
             new AlertDialog.Builder(this).setTitle("Start experimental visual agent?")
@@ -98,8 +102,12 @@ public final class MainActivity extends Activity {
                 }).setNegativeButton("Cancel",null).show();
         });
         aiStop.setOnClickListener(v -> { visualAgent.stop(); touchAgent.stop(); });
+        bridgeStatus.setOnClickListener(v -> new AlertDialog.Builder(this)
+            .setTitle("Controller compatibility")
+            .setMessage("The local 60Hz controller state engine is present, but no external Xbox-compatible gamepad bridge is connected. Android does not allow this ordinary unrooted app to register a system-wide virtual Xbox controller. Touch gestures are not gamepad events. Autonomous Xbox controller mode is unavailable until a compatible input bridge is verified.")
+            .setPositiveButton("OK",null).show());
         floatingStop.setOnClickListener(v -> {
-            visualAgent.stop(); touchAgent.stop(); setFullscreen(false);
+            visualAgent.stop(); touchAgent.stop(); controllerEngine.stop(); setFullscreen(false);
         });
         previewCapture.setOnClickListener(v -> {
             if (browser.getWidth() < 1 || browser.getHeight() < 1) {
@@ -215,11 +223,13 @@ public final class MainActivity extends Activity {
 
     @Override protected void onPause() {
         if (visualAgent != null) visualAgent.stop();
+        if (controllerEngine != null) controllerEngine.stop();
         super.onPause();
     }
 
     @Override protected void onDestroy() {
         if (visualAgent != null) visualAgent.stop();
+        if (controllerEngine != null) controllerEngine.stop();
         if (touchAgent != null) touchAgent.stop();
         browser.destroy();
         super.onDestroy();
