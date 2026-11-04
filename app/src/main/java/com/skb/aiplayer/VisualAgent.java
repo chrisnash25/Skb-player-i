@@ -99,13 +99,14 @@ public final class VisualAgent {
         send(t,t,MotionEvent.ACTION_DOWN,x,y);
         if (action.equals("swipe")) {
             for(int i=1;i<=5;i++) {
-                float p=i/5f;
-                send(t,t+(duration*i/5),MotionEvent.ACTION_MOVE,x+(tx-x)*p,y+(ty-y)*p);
+                final int step=i;
+                handler.postDelayed(() -> {
+                    float p=step/5f;
+                    send(t,SystemClock.uptimeMillis(),MotionEvent.ACTION_MOVE,x+(tx-x)*p,y+(ty-y)*p);
+                }, duration*i/5);
             }
-        } else if (action.equals("hold")) {
-            send(t,t+duration/2,MotionEvent.ACTION_MOVE,x,y);
         }
-        send(t,t+duration,MotionEvent.ACTION_UP,tx,ty);
+        handler.postDelayed(() -> send(t,SystemClock.uptimeMillis(),MotionEvent.ACTION_UP,tx,ty), duration);
     }
     private void send(long down,long time,int action,float x,float y) {
         MotionEvent event=MotionEvent.obtain(down,time,action,x,y,0);
