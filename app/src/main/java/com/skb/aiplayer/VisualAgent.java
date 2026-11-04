@@ -17,6 +17,7 @@ public final class VisualAgent {
     private final Handler handler = new Handler(Looper.getMainLooper());
     private final Status status;
     private boolean running;
+    private int generation;
     private int cycles;
     private int failures;
     private String key;
@@ -41,12 +42,14 @@ public final class VisualAgent {
     public void start(String apiKey) {
         stop();
         if (apiKey == null || apiKey.trim().isEmpty()) { status.update("Enter Gemini key first."); return; }
-        key=apiKey; running=true; cycles=0; failures=0; started=SystemClock.elapsedRealtime();
+        key=apiKey; running=true;
+        generation++; cycles=0; failures=0; started=SystemClock.elapsedRealtime();
         status.update("Visual agent started (max 30 decisions / 3 minutes).");
         observe();
     }
     public void stop() {
         running=false;
+        generation++;
         handler.removeCallbacksAndMessages(null);
         if (fingerDown) {
             send(fingerStart,SystemClock.uptimeMillis(),MotionEvent.ACTION_UP,fingerX,fingerY);
@@ -60,8 +63,12 @@ public final class VisualAgent {
         }
         cycles++;
         status.update("Gemini observing frame " + cycles + "/" + MAX_CYCLES);
+        final int requestGeneration = generation;
         GeminiVision.analyze(web,key,prompt,result -> {
-            if (!running) return;
+            if (!running || requestGeneration != generation) return;
+            if (result.startsWith("CAPTURE_UNAVAILABLE:")) {
+                stop(); status.update(result); return;
+            }
             try {
                 String clean = result.trim();
                 if (clean.startsWith("```")) {
@@ -86,7 +93,7 @@ public final class VisualAgent {
                 }
                 failures=0;
                 status.update("AI decision "+cycles+": "+action+" — "+reason);
-                handler.postDelayed(this::observe,1800);
+                handler.postDelayed(this::observe,Math.max(900, duration + 300));
             } catch (Exception e) {
                 failures++;
                 status.update("AI response rejected ("+failures+"): "+result.substring(0,Math.min(100,result.length())));
