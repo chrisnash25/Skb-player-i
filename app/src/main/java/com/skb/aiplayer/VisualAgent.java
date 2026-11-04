@@ -25,8 +25,11 @@ public final class VisualAgent {
     private long fingerStart;
     private float fingerX, fingerY;
     private long started;
-    private static final int MAX_CYCLES = 30;
-    private static final long MAX_RUNTIME_MS = 180000;
+    private static final int MAX_CYCLES = 120;
+    private static final long MAX_RUNTIME_MS = 600000;
+    private static final long MIN_REQUEST_INTERVAL_MS = 2500;
+    private long lastRequestAt;
+    private int waitCycles;
     private final String prompt = "You are a cautious visual interaction planner for a game screen. "
         + "Return ONLY a JSON object with keys action, x, y, x2, y2, duration_ms, reason. "
         + "action must be one of wait, tap, swipe, hold, stop. "
@@ -43,8 +46,8 @@ public final class VisualAgent {
         stop();
         if (apiKey == null || apiKey.trim().isEmpty()) { status.update("Enter Gemini key first."); return; }
         key=apiKey; running=true;
-        generation++; cycles=0; failures=0; started=SystemClock.elapsedRealtime();
-        status.update("Visual agent started (max 30 decisions / 3 minutes).");
+        generation++; cycles=0; failures=0; waitCycles=0; lastRequestAt=0; started=SystemClock.elapsedRealtime();
+        status.update("Visual agent started (up to 120 decisions / 10 minutes).");
         observe();
     }
     public void stop() {
@@ -61,7 +64,16 @@ public final class VisualAgent {
         if (cycles >= MAX_CYCLES || SystemClock.elapsedRealtime()-started > MAX_RUNTIME_MS) {
             stop(); status.update("Visual agent safety limit reached."); return;
         }
+        long now=SystemClock.elapsedRealtime();
+        if (lastRequestAt > 0 && now-lastRequestAt < MIN_REQUEST_INTERVAL_MS) {
+            handler.postDelayed(this::observe,MIN_REQUEST_INTERVAL_MS-(now-lastRequestAt)); return;
+        }
+        String url=web.getUrl();
+        if (url==null || !url.startsWith("https://www.xbox.com/play")) {
+            stop(); status.update("Stopped: only Xbox Cloud Gaming play pages are allowed."); return;
+        }
         cycles++;
+        lastRequestAt=now;
         status.update("Gemini observing frame " + cycles + "/" + MAX_CYCLES);
         final int requestGeneration = generation;
         GeminiVision.analyze(web,key,prompt,result -> {
@@ -78,6 +90,8 @@ public final class VisualAgent {
                 String action=plan.optString("action","stop").toLowerCase(java.util.Locale.ROOT);
                 String reason=plan.optString("reason","");
                 if (action.equals("stop")) { stop(); status.update("AI stopped: "+reason); return; }
+                if (action.equals("wait")) waitCycles++; else waitCycles=0;
+                if (waitCycles>=8) { stop(); status.update("Stopped after 8 consecutive wait decisions: "+reason); return; }
                 if (!action.equals("wait") && !action.equals("tap")
                     && !action.equals("swipe") && !action.equals("hold")) {
                     throw new IllegalArgumentException("Invalid action");
@@ -93,7 +107,7 @@ public final class VisualAgent {
                 }
                 failures=0;
                 status.update("AI decision "+cycles+": "+action+" — "+reason);
-                handler.postDelayed(this::observe,Math.max(900, duration + 300));
+                handler.postDelayed(this::observe,Math.max(400, duration + 150));
             } catch (Exception e) {
                 failures++;
                 status.update("AI response rejected ("+failures+"): "+result.substring(0,Math.min(100,result.length())));
