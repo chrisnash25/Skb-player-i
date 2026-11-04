@@ -29,6 +29,20 @@ public final class GeminiVision {
         android.graphics.Canvas canvas = new android.graphics.Canvas(bitmap);
         canvas.scale(w / (float)web.getWidth(), h / (float)web.getHeight());
         web.draw(canvas);
+        int dark = 0, sampled = 0;
+        for (int sy = 0; sy < h; sy += Math.max(1,h/16)) {
+            for (int sx = 0; sx < w; sx += Math.max(1,w/24)) {
+                int pixel = bitmap.getPixel(sx,sy);
+                int brightness = (android.graphics.Color.red(pixel) + android.graphics.Color.green(pixel) + android.graphics.Color.blue(pixel)) / 3;
+                if (brightness < 9) dark++;
+                sampled++;
+            }
+        }
+        if (sampled > 0 && dark > sampled * 0.97) {
+            bitmap.recycle();
+            callback.done("CAPTURE_UNAVAILABLE: Captured image is almost entirely black. Protected video may not be visible to Android WebView capture. No screenshot was uploaded.");
+            return;
+        }
         ByteArrayOutputStream bytes = new ByteArrayOutputStream();
         bitmap.compress(Bitmap.CompressFormat.JPEG, 65, bytes);
         bitmap.recycle();
