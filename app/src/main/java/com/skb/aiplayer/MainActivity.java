@@ -5,6 +5,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.graphics.Color;
 import android.view.View;
+import android.view.MotionEvent;
 import android.webkit.WebChromeClient;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -18,6 +19,8 @@ public final class MainActivity extends Activity {
     private TextView status;
     private LinearLayout toolbar;
     private boolean fullscreen = false;
+    private TouchAgent touchAgent;
+    private boolean calibrating = false;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -35,7 +38,13 @@ public final class MainActivity extends Activity {
         Button test = new Button(this); test.setText("Check gamepad API");
         Button fullscreenButton = new Button(this); fullscreenButton.setText("Fullscreen");
         Button labButton = new Button(this); labButton.setText("AI Lab");
+        Button calibrate = new Button(this); calibrate.setText("Set Touch");
+        Button auto = new Button(this); auto.setText("Auto Tap");
+        Button stop = new Button(this); stop.setText("STOP");
         bar.addView(load); bar.addView(test); bar.addView(fullscreenButton); bar.addView(labButton);
+        LinearLayout agentBar = new LinearLayout(this);
+        agentBar.addView(calibrate); agentBar.addView(auto); agentBar.addView(stop);
+        toolbar.addView(agentBar);
         toolbar.addView(bar);
         root.addView(toolbar);
         browser = new WebView(this);
@@ -45,6 +54,30 @@ public final class MainActivity extends Activity {
         browser.setWebViewClient(new WebViewClient());
         root.addView(browser, new LinearLayout.LayoutParams(-1, 0, 1));
         setContentView(root);
+        touchAgent = new TouchAgent(browser);
+        touchAgent.setListener(() -> status.setText(touchAgent.isActive()
+            ? "Touch test active: " + touchAgent.steps() + "/120 (1 tap/1.2s)"
+            : "Touch test stopped. This is not an Xbox virtual controller."));
+        calibrate.setOnClickListener(v -> {
+            touchAgent.stop();
+            calibrating = true;
+            status.setText("Tap the desired location inside the WebView once to calibrate.");
+        });
+        browser.setOnTouchListener((v, event) -> {
+            if (!calibrating) return false;
+            if (event.getActionMasked() == MotionEvent.ACTION_UP) {
+                touchAgent.setTarget(event.getX() / Math.max(1, browser.getWidth()),
+                    event.getY() / Math.max(1, browser.getHeight()));
+                calibrating = false;
+                status.setText("Touch target saved. Press Auto Tap to test.");
+            }
+            return true;
+        });
+        auto.setOnClickListener(v -> {
+            calibrating = false;
+            touchAgent.start();
+        });
+        stop.setOnClickListener(v -> touchAgent.stop());
         load.setOnClickListener(v -> browser.loadUrl("https://www.xbox.com/play"));
         test.setOnClickListener(v -> browser.evaluateJavascript(
             "(function(){return JSON.stringify({url:location.origin,gamepadAPI:!!navigator.getGamepads,connected:navigator.getGamepads?Array.from(navigator.getGamepads()).filter(Boolean).length:0})})()",
@@ -71,12 +104,14 @@ public final class MainActivity extends Activity {
     }
 
     @Override public void onBackPressed() {
+        if (touchAgent != null && touchAgent.isActive()) { touchAgent.stop(); return; }
         if (fullscreen) setFullscreen(false);
         else if (browser.canGoBack()) browser.goBack();
         else super.onBackPressed();
     }
 
     @Override protected void onDestroy() {
+        if (touchAgent != null) touchAgent.stop();
         browser.destroy();
         super.onDestroy();
     }
