@@ -47,9 +47,9 @@ public final class MainActivity extends Activity {
         super.onCreate(state);
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
-        root.setBackgroundColor(Color.rgb(12, 16, 22));
+        root.setBackgroundColor(Color.rgb(9, 14, 20));
         commandScroll = new ScrollView(this);
-        commandScroll.setBackgroundColor(Color.rgb(20, 26, 34));
+        commandScroll.setBackgroundColor(Color.rgb(16, 23, 31));
         toolbar = new LinearLayout(this);
         toolbar.setOrientation(LinearLayout.VERTICAL);
         status = new TextView(this);
@@ -59,9 +59,11 @@ public final class MainActivity extends Activity {
         status.setTextSize(13);
         status.setBackgroundColor(Color.rgb(25, 36, 49));
         TextView brandHeading = new TextView(this);
-        brandHeading.setText("SKB  /  AI PLAYER PRO");
+        brandHeading.setText("SKB   /   AI PLAYER PRO");
         brandHeading.setTextColor(Color.rgb(174, 224, 255));
-        brandHeading.setTextSize(22);
+        brandHeading.setTextSize(21);
+        brandHeading.setLetterSpacing(0.07f);
+        brandHeading.setBackground(panelBackground());
         brandHeading.setTypeface(null, android.graphics.Typeface.BOLD);
         brandHeading.setPadding(dp(14), dp(12), dp(14), dp(5));
         toolbar.addView(brandHeading);
@@ -122,6 +124,7 @@ public final class MainActivity extends Activity {
         gameHeading.setTextColor(Color.rgb(174, 224, 255));
         gameHeading.setTextSize(12);
         gameHeading.setPadding(dp(12), dp(8), dp(12), dp(8));
+        gameHeading.setBackground(panelBackground());
         root.addView(gameHeading);
         browser = new WebView(this);
         browser.getSettings().setJavaScriptEnabled(true);
@@ -157,6 +160,7 @@ public final class MainActivity extends Activity {
         gameFrame = new android.widget.FrameLayout(this);
         gameFrame.setClipChildren(true);
         gameFrame.setClipToPadding(true);
+        gameFrame.setBackgroundColor(Color.BLACK);
         gameFrame.addView(browser, new android.widget.FrameLayout.LayoutParams(-1,-1));
         floatingStop = new Button(this);
         floatingStop.setText("STOP AI");
@@ -298,6 +302,15 @@ public final class MainActivity extends Activity {
         labButton.setOnClickListener(v -> startActivity(new Intent(this, SimulatorActivity.class)));
     }
 
+    private android.graphics.drawable.GradientDrawable panelBackground() {
+        android.graphics.drawable.GradientDrawable panel = new android.graphics.drawable.GradientDrawable(
+            android.graphics.drawable.GradientDrawable.Orientation.TOP_BOTTOM,
+            new int[]{Color.rgb(44, 57, 69), Color.rgb(17, 26, 35), Color.rgb(10, 17, 24)});
+        panel.setStroke(dp(1), Color.rgb(77, 139, 168));
+        panel.setCornerRadius(dp(5));
+        return panel;
+    }
+
     private void showSection(String section) {
         gameControls.setVisibility("game".equals(section) ? View.VISIBLE : View.GONE);
         aiControls.setVisibility("ai".equals(section) ? View.VISIBLE : View.GONE);
@@ -320,7 +333,9 @@ public final class MainActivity extends Activity {
                 button.setTextColor(Color.WHITE);
                 button.setTextSize(11);
                 button.setAllCaps(false);
-                button.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.rgb(32, 55, 72)));
+                button.setBackgroundTintList(null);
+                button.setBackground(panelBackground());
+                button.setPadding(dp(12), dp(4), dp(12), dp(4));
             }
         }
         return scroller;
