@@ -26,6 +26,8 @@ public final class MainActivity extends Activity {
     private WebView browser;
     private TextView status;
     private LinearLayout toolbar;
+    private ScrollView commandScroll;
+    private TextView gameHeading;
     private boolean fullscreen = false;
     private android.widget.FrameLayout gameFrame;
     private View videoFullscreenView;
@@ -45,14 +47,30 @@ public final class MainActivity extends Activity {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Color.rgb(12, 16, 22));
-        ScrollView commandScroll = new ScrollView(this);
+        commandScroll = new ScrollView(this);
         commandScroll.setBackgroundColor(Color.rgb(20, 26, 34));
         toolbar = new LinearLayout(this);
         toolbar.setOrientation(LinearLayout.VERTICAL);
         status = new TextView(this);
         status.setTextColor(Color.WHITE);
         status.setText("SKB AI PLAYER PRO | COMMAND CENTRE\nBluetooth: disconnected | Game: not loaded");
-        status.setPadding(16, 12, 12, 12);
+        status.setPadding(dp(14), dp(12), dp(14), dp(12));
+        status.setTextSize(13);
+        status.setBackgroundColor(Color.rgb(25, 36, 49));
+        TextView brandHeading = new TextView(this);
+        brandHeading.setText("SKB  /  AI PLAYER PRO");
+        brandHeading.setTextColor(Color.rgb(174, 224, 255));
+        brandHeading.setTextSize(22);
+        brandHeading.setTypeface(null, android.graphics.Typeface.BOLD);
+        brandHeading.setPadding(dp(14), dp(12), dp(14), dp(5));
+        toolbar.addView(brandHeading);
+        LinearLayout nav = new LinearLayout(this);
+        Button gameTab = new Button(this); gameTab.setText("GAME");
+        Button aiTab = new Button(this); aiTab.setText("AI");
+        Button controllerTab = new Button(this); controllerTab.setText("BLE");
+        Button toolsTab = new Button(this); toolsTab.setText("LAB");
+        nav.addView(gameTab); nav.addView(aiTab); nav.addView(controllerTab); nav.addView(toolsTab);
+        toolbar.addView(horizontalControls(nav));
         toolbar.addView(status);
         LinearLayout bar = new LinearLayout(this);
         Button load = new Button(this); load.setText("Open Xbox Cloud");
@@ -84,7 +102,13 @@ public final class MainActivity extends Activity {
         toolbar.addView(horizontalControls(visionBar));
         toolbar.addView(horizontalControls(bar));
         commandScroll.addView(toolbar);
-        root.addView(commandScroll, new LinearLayout.LayoutParams(-1, dp(226)));
+        root.addView(commandScroll, new LinearLayout.LayoutParams(-1, dp(248)));
+        gameHeading = new TextView(this);
+        gameHeading.setText("LIVE GAME VIEW   •   Xbox Cloud Gaming   •   Not loaded");
+        gameHeading.setTextColor(Color.rgb(174, 224, 255));
+        gameHeading.setTextSize(12);
+        gameHeading.setPadding(dp(12), dp(8), dp(12), dp(8));
+        root.addView(gameHeading);
         browser = new WebView(this);
         browser.getSettings().setJavaScriptEnabled(true);
         browser.getSettings().setDomStorageEnabled(true);
@@ -104,7 +128,18 @@ public final class MainActivity extends Activity {
                 closeVideoFullscreen();
             }
         });
-        browser.setWebViewClient(new WebViewClient());
+        browser.setWebViewClient(new WebViewClient() {
+            @Override public void onPageStarted(WebView view, String url, android.graphics.Bitmap favicon) {
+                gameHeading.setText("LIVE GAME VIEW   •   Loading Xbox Cloud Gaming");
+            }
+            @Override public void onPageFinished(WebView view, String url) {
+                gameHeading.setText("LIVE GAME VIEW   •   Browser page loaded (stream not verified)");
+            }
+            @Override public void onReceivedError(WebView view, android.webkit.WebResourceRequest request,
+                    android.webkit.WebResourceError error) {
+                if (request.isForMainFrame()) gameHeading.setText("LIVE GAME VIEW   •   Page failed to load");
+            }
+        });
         gameFrame = new android.widget.FrameLayout(this);
         gameFrame.setClipChildren(true);
         gameFrame.setClipToPadding(true);
@@ -229,6 +264,16 @@ public final class MainActivity extends Activity {
         });
         stop.setOnClickListener(v -> touchAgent.stop());
         load.setOnClickListener(v -> browser.loadUrl("https://www.xbox.com/play"));
+        gameTab.setOnClickListener(v -> browser.loadUrl("https://www.xbox.com/play"));
+        aiTab.setOnClickListener(v -> {
+            commandScroll.smoothScrollTo(0, dp(180));
+            status.setText("AI controls: set Gemini key, verify capture, then start experimental visual AI.");
+        });
+        controllerTab.setOnClickListener(v -> {
+            commandScroll.smoothScrollTo(0, dp(180));
+            status.setText("BLE controls: connect SKB controller, then run the short input test. Hardware not verified.");
+        });
+        toolsTab.setOnClickListener(v -> startActivity(new Intent(this, SimulatorActivity.class)));
         test.setOnClickListener(v -> browser.evaluateJavascript(
             "(function(){return JSON.stringify({url:location.origin,gamepadAPI:!!navigator.getGamepads,connected:navigator.getGamepads?Array.from(navigator.getGamepads()).filter(Boolean).length:0})})()",
             result -> status.setText("Gamepad diagnostic: " + result)));
@@ -270,7 +315,8 @@ public final class MainActivity extends Activity {
 
     private void setFullscreen(boolean enable) {
         fullscreen = enable;
-        ((View) toolbar.getParent()).setVisibility(enable ? View.GONE : View.VISIBLE);
+        commandScroll.setVisibility(enable ? View.GONE : View.VISIBLE);
+        gameHeading.setVisibility(enable ? View.GONE : View.VISIBLE);
         if (floatingStop != null) floatingStop.setVisibility(enable ? View.VISIBLE : View.GONE);
         if (enable) {
             getWindow().getDecorView().setSystemUiVisibility(
