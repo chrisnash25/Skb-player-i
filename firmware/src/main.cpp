@@ -35,10 +35,10 @@ class Connection : public BLEServerCallbacks {
 class Commands : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *c) override {
     String data = c->getValue();
-    // Exact 9-byte state packet; no unauthenticated text commands.
+    // Exact 8-byte state packet. Command authorization requires device-level verification.
     if (!connected || data.length() != sizeof(report)) return;
     memcpy(report,data.c_str(),sizeof(report));
-        lastCommand = millis();
+    lastCommand = millis();
   }
 };
 void setup() {
