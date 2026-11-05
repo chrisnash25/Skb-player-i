@@ -34,6 +34,8 @@ public final class MainActivity extends Activity {
     private VisualAgent visualAgent;
     private Button floatingStop;
     private ControllerEngine controllerEngine;
+    private BleControllerBridge bleBridge;
+    private static final int BLE_PERMISSION_REQUEST = 4102;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -59,7 +61,8 @@ public final class MainActivity extends Activity {
         Button aiStart = new Button(this); aiStart.setText("Start Visual AI");
         Button aiStop = new Button(this); aiStop.setText("STOP AI");
         Button previewCapture = new Button(this); previewCapture.setText("Verify Game Vision");
-        Button bridgeStatus = new Button(this); bridgeStatus.setText("Controller Bridge Status");
+        Button bridgeStatus = new Button(this); bridgeStatus.setText("Connect SKB BLE");
+        Button bridgeTest = new Button(this); bridgeTest.setText("Test BLE input");
         bar.addView(load); bar.addView(test); bar.addView(fullscreenButton); bar.addView(labButton);
         LinearLayout agentBar = new LinearLayout(this);
         agentBar.addView(calibrate); agentBar.addView(auto); agentBar.addView(stop);
@@ -70,6 +73,7 @@ public final class MainActivity extends Activity {
         aiBar.addView(aiStart); aiBar.addView(aiStop);
         aiBar.addView(previewCapture);
         aiBar.addView(bridgeStatus);
+        aiBar.addView(bridgeTest);
         toolbar.addView(aiBar);
         toolbar.addView(visionBar);
         toolbar.addView(bar);
@@ -92,6 +96,16 @@ public final class MainActivity extends Activity {
         touchAgent = new TouchAgent(browser);
         visualAgent = new VisualAgent(browser, message -> status.setText(message));
         controllerEngine = new ControllerEngine();
+        bleBridge = new BleControllerBridge(this, message -> status.setText(message));
+        controllerEngine.setSink(bleBridge);
+        bridgeTest.setOnClickListener(v -> {
+            if (!bleBridge.isReady()) { status.setText("Connect SKB BLE first"); return; }
+            controllerEngine.start();
+            try { controllerEngine.command(new org.json.JSONObject().put("buttons",1)); }
+            catch (org.json.JSONException ignored) { }
+            new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> controllerEngine.stop(), 250);
+            status.setText("Sent short A-button test; verify gamepad response on Android");
+        });
         aiStart.setOnClickListener(v -> {
             if (geminiKey.isEmpty()) { status.setText("Set Gemini key first."); return; }
             new AlertDialog.Builder(this).setTitle("Start experimental visual agent?")
@@ -102,10 +116,13 @@ public final class MainActivity extends Activity {
                 }).setNegativeButton("Cancel",null).show();
         });
         aiStop.setOnClickListener(v -> { visualAgent.stop(); touchAgent.stop(); });
-        bridgeStatus.setOnClickListener(v -> new AlertDialog.Builder(this)
-            .setTitle("Controller compatibility")
-            .setMessage("The local 60Hz controller state engine is present, but no external Xbox-compatible gamepad bridge is connected. Android does not allow this ordinary unrooted app to register a system-wide virtual Xbox controller. Touch gestures are not gamepad events. Autonomous Xbox controller mode is unavailable until a compatible input bridge is verified.")
-            .setPositiveButton("OK",null).show());
+        bridgeStatus.setOnClickListener(v -> {
+            if (!bleBridge.hasPermission()) {
+                if (android.os.Build.VERSION.SDK_INT >= 31)
+                    requestPermissions(new String[]{android.Manifest.permission.BLUETOOTH_SCAN, android.Manifest.permission.BLUETOOTH_CONNECT}, BLE_PERMISSION_REQUEST);
+                else requestPermissions(new String[]{android.Manifest.permission.ACCESS_FINE_LOCATION}, BLE_PERMISSION_REQUEST);
+            } else bleBridge.connect();
+        });
         floatingStop.setOnClickListener(v -> {
             visualAgent.stop(); touchAgent.stop(); controllerEngine.stop(); setFullscreen(false);
         });
@@ -213,6 +230,14 @@ public final class MainActivity extends Activity {
         browser.requestFocus();
     }
 
+    @Override public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+        if (requestCode == BLE_PERMISSION_REQUEST && bleBridge != null) {
+            if (bleBridge.hasPermission()) bleBridge.connect();
+            else status.setText("Bluetooth permission denied");
+        }
+    }
+
     @Override public void onBackPressed() {
         if (visualAgent != null && visualAgent.isRunning()) { visualAgent.stop(); return; }
         if (touchAgent != null && touchAgent.isActive()) { touchAgent.stop(); return; }
@@ -230,6 +255,7 @@ public final class MainActivity extends Activity {
     @Override protected void onDestroy() {
         if (visualAgent != null) visualAgent.stop();
         if (controllerEngine != null) controllerEngine.stop();
+        if (bleBridge != null) bleBridge.disconnect();
         if (touchAgent != null) touchAgent.stop();
         browser.destroy();
         super.onDestroy();
