@@ -15,7 +15,7 @@ static BLECharacteristic *inputReport = nullptr;
 static volatile bool connected = false;
 static uint32_t lastCommand = 0;
 static uint32_t lastReport = 0;
-static uint8_t report[9] = {0};
+static uint8_t report[8] = {0};
 // 16 buttons, four 8-bit axes, two 8-bit triggers, report ID 1.
 static const uint8_t descriptor[] = {
   0x05,0x01,0x09,0x05,0xA1,0x01,0x85,0x01,
@@ -38,9 +38,7 @@ class Commands : public BLECharacteristicCallbacks {
     // Exact 9-byte state packet; no unauthenticated text commands.
     if (!connected || data.size() != sizeof(report)) return;
     memcpy(report,data.data(),sizeof(report));
-    // Byte 8 reserved for future versioning; only six axes/buttons are used.
-    report[8] = 0;
-    lastCommand = millis();
+        lastCommand = millis();
   }
 };
 void setup() {
@@ -61,7 +59,7 @@ void setup() {
   command->setCallbacks(new Commands());
   commandService->start();
   BLESecurity *security = new BLESecurity();
-  security->setAuthenticationMode(ESP_LE_AUTH_REQ_SC_BOND);
+  security->setAuthenticationMode(ESP_LE_AUTH_BOND);
   security->setCapability(ESP_IO_CAP_NONE);
   BLEAdvertising *advertising = BLEDevice::getAdvertising();
   advertising->setAppearance(0x03C4); // Generic gamepad
@@ -75,7 +73,7 @@ void loop() {
   if ((uint32_t)(now-lastCommand) > 500) neutral();
   if (connected && (uint32_t)(now-lastReport)>=16) {
     lastReport=now;
-    inputReport->setValue(report,8);
+    inputReport->setValue(report,sizeof(report));
     inputReport->notify();
   }
   delay(2);
