@@ -27,6 +27,9 @@ public final class MainActivity extends Activity {
     private TextView status;
     private LinearLayout toolbar;
     private boolean fullscreen = false;
+    private android.widget.FrameLayout gameFrame;
+    private View videoFullscreenView;
+    private WebChromeClient.CustomViewCallback videoFullscreenCallback;
     private TouchAgent touchAgent;
     private boolean calibrating = false;
     private String geminiKey = "";
@@ -81,9 +84,26 @@ public final class MainActivity extends Activity {
         browser = new WebView(this);
         browser.getSettings().setJavaScriptEnabled(true);
         browser.getSettings().setDomStorageEnabled(true);
-        browser.setWebChromeClient(new WebChromeClient());
+        browser.setWebChromeClient(new WebChromeClient() {
+            @Override public void onShowCustomView(View view, CustomViewCallback callback) {
+                if (videoFullscreenView != null) {
+                    callback.onCustomViewHidden();
+                    return;
+                }
+                videoFullscreenView = view;
+                videoFullscreenCallback = callback;
+                gameFrame.addView(view, new android.widget.FrameLayout.LayoutParams(-1, -1));
+                browser.setVisibility(View.INVISIBLE);
+                setFullscreen(true);
+            }
+            @Override public void onHideCustomView() {
+                closeVideoFullscreen();
+            }
+        });
         browser.setWebViewClient(new WebViewClient());
-        android.widget.FrameLayout gameFrame = new android.widget.FrameLayout(this);
+        gameFrame = new android.widget.FrameLayout(this);
+        gameFrame.setClipChildren(true);
+        gameFrame.setClipToPadding(true);
         gameFrame.addView(browser, new android.widget.FrameLayout.LayoutParams(-1,-1));
         floatingStop = new Button(this);
         floatingStop.setText("STOP AI");
@@ -212,6 +232,17 @@ public final class MainActivity extends Activity {
         labButton.setOnClickListener(v -> startActivity(new Intent(this, SimulatorActivity.class)));
     }
 
+    private void closeVideoFullscreen() {
+        if (videoFullscreenView == null) return;
+        gameFrame.removeView(videoFullscreenView);
+        videoFullscreenView = null;
+        browser.setVisibility(View.VISIBLE);
+        WebChromeClient.CustomViewCallback callback = videoFullscreenCallback;
+        videoFullscreenCallback = null;
+        if (callback != null) callback.onCustomViewHidden();
+        setFullscreen(false);
+    }
+
     private void setFullscreen(boolean enable) {
         fullscreen = enable;
         toolbar.setVisibility(enable ? View.GONE : View.VISIBLE);
@@ -241,7 +272,8 @@ public final class MainActivity extends Activity {
     @Override public void onBackPressed() {
         if (visualAgent != null && visualAgent.isRunning()) { visualAgent.stop(); return; }
         if (touchAgent != null && touchAgent.isActive()) { touchAgent.stop(); return; }
-        if (fullscreen) setFullscreen(false);
+        if (videoFullscreenView != null) closeVideoFullscreen();
+        else if (fullscreen) setFullscreen(false);
         else if (browser.canGoBack()) browser.goBack();
         else super.onBackPressed();
     }
@@ -257,6 +289,7 @@ public final class MainActivity extends Activity {
         if (controllerEngine != null) controllerEngine.stop();
         if (bleBridge != null) bleBridge.disconnect();
         if (touchAgent != null) touchAgent.stop();
+        if (videoFullscreenView != null) closeVideoFullscreen();
         browser.destroy();
         super.onDestroy();
     }
