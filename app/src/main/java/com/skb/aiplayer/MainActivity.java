@@ -45,11 +45,14 @@ public final class MainActivity extends Activity {
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setBackgroundColor(Color.rgb(12, 16, 22));
+        ScrollView commandScroll = new ScrollView(this);
+        commandScroll.setBackgroundColor(Color.rgb(20, 26, 34));
         toolbar = new LinearLayout(this);
         toolbar.setOrientation(LinearLayout.VERTICAL);
         status = new TextView(this);
         status.setTextColor(Color.WHITE);
-        status.setText("SKB B1 | Browser compatibility prototype — no AI controller connected");
+        status.setText("SKB AI PLAYER PRO | COMMAND CENTRE\nBluetooth: disconnected | Game: not loaded");
+        status.setPadding(16, 12, 12, 12);
         toolbar.addView(status);
         LinearLayout bar = new LinearLayout(this);
         Button load = new Button(this); load.setText("Open Xbox Cloud");
@@ -69,7 +72,7 @@ public final class MainActivity extends Activity {
         bar.addView(load); bar.addView(test); bar.addView(fullscreenButton); bar.addView(labButton);
         LinearLayout agentBar = new LinearLayout(this);
         agentBar.addView(calibrate); agentBar.addView(auto); agentBar.addView(stop);
-        toolbar.addView(agentBar);
+        toolbar.addView(horizontalControls(agentBar));
         LinearLayout visionBar = new LinearLayout(this);
         visionBar.addView(keyButton); visionBar.addView(visionButton);
         LinearLayout aiBar = new LinearLayout(this);
@@ -77,10 +80,11 @@ public final class MainActivity extends Activity {
         aiBar.addView(previewCapture);
         aiBar.addView(bridgeStatus);
         aiBar.addView(bridgeTest);
-        toolbar.addView(aiBar);
-        toolbar.addView(visionBar);
-        toolbar.addView(bar);
-        root.addView(toolbar);
+        toolbar.addView(horizontalControls(aiBar));
+        toolbar.addView(horizontalControls(visionBar));
+        toolbar.addView(horizontalControls(bar));
+        commandScroll.addView(toolbar);
+        root.addView(commandScroll, new LinearLayout.LayoutParams(-1, dp(226)));
         browser = new WebView(this);
         browser.getSettings().setJavaScriptEnabled(true);
         browser.getSettings().setDomStorageEnabled(true);
@@ -232,6 +236,27 @@ public final class MainActivity extends Activity {
         labButton.setOnClickListener(v -> startActivity(new Intent(this, SimulatorActivity.class)));
     }
 
+    private int dp(int value) {
+        return Math.round(value * getResources().getDisplayMetrics().density);
+    }
+
+    private android.widget.HorizontalScrollView horizontalControls(LinearLayout controls) {
+        android.widget.HorizontalScrollView scroller = new android.widget.HorizontalScrollView(this);
+        scroller.setHorizontalScrollBarEnabled(false);
+        scroller.addView(controls);
+        for (int i = 0; i < controls.getChildCount(); i++) {
+            View child = controls.getChildAt(i);
+            if (child instanceof Button) {
+                Button button = (Button) child;
+                button.setTextColor(Color.WHITE);
+                button.setTextSize(11);
+                button.setAllCaps(false);
+                button.setBackgroundTintList(android.content.res.ColorStateList.valueOf(Color.rgb(32, 55, 72)));
+            }
+        }
+        return scroller;
+    }
+
     private void closeVideoFullscreen() {
         if (videoFullscreenView == null) return;
         gameFrame.removeView(videoFullscreenView);
@@ -245,7 +270,7 @@ public final class MainActivity extends Activity {
 
     private void setFullscreen(boolean enable) {
         fullscreen = enable;
-        toolbar.setVisibility(enable ? View.GONE : View.VISIBLE);
+        ((View) toolbar.getParent()).setVisibility(enable ? View.GONE : View.VISIBLE);
         if (floatingStop != null) floatingStop.setVisibility(enable ? View.VISIBLE : View.GONE);
         if (enable) {
             getWindow().getDecorView().setSystemUiVisibility(
