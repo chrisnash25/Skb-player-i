@@ -34,10 +34,10 @@ class Connection : public BLEServerCallbacks {
 };
 class Commands : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *c) override {
-    std::string data = c->getValue();
+    String data = c->getValue();
     // Exact 9-byte state packet; no unauthenticated text commands.
     if (!connected || data.size() != sizeof(report)) return;
-    memcpy(report,data.data(),sizeof(report));
+    memcpy(report,data.c_str(),sizeof(report));
         lastCommand = millis();
   }
 };
