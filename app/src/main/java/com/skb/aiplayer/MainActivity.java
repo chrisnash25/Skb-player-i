@@ -28,6 +28,7 @@ public final class MainActivity extends Activity {
     private LinearLayout toolbar;
     private ScrollView commandScroll;
     private TextView gameHeading;
+    private LinearLayout gameControls, aiControls, bleControls;
     private boolean fullscreen = false;
     private android.widget.FrameLayout gameFrame;
     private View videoFullscreenView;
@@ -90,17 +91,30 @@ public final class MainActivity extends Activity {
         bar.addView(load); bar.addView(test); bar.addView(fullscreenButton); bar.addView(labButton);
         LinearLayout agentBar = new LinearLayout(this);
         agentBar.addView(calibrate); agentBar.addView(auto); agentBar.addView(stop);
-        toolbar.addView(horizontalControls(agentBar));
+        gameControls = new LinearLayout(this);
+        gameControls.setOrientation(LinearLayout.VERTICAL);
+        gameControls.addView(horizontalControls(agentBar));
         LinearLayout visionBar = new LinearLayout(this);
         visionBar.addView(keyButton); visionBar.addView(visionButton);
         LinearLayout aiBar = new LinearLayout(this);
         aiBar.addView(aiStart); aiBar.addView(aiStop);
         aiBar.addView(previewCapture);
-        aiBar.addView(bridgeStatus);
-        aiBar.addView(bridgeTest);
-        toolbar.addView(horizontalControls(aiBar));
-        toolbar.addView(horizontalControls(visionBar));
-        toolbar.addView(horizontalControls(bar));
+        LinearLayout bridgeBar = new LinearLayout(this);
+        bridgeBar.addView(bridgeStatus);
+        bridgeBar.addView(bridgeTest);
+        aiControls = new LinearLayout(this);
+        aiControls.setOrientation(LinearLayout.VERTICAL);
+        aiControls.addView(horizontalControls(aiBar));
+        aiControls.addView(horizontalControls(visionBar));
+        gameControls.addView(horizontalControls(bar));
+        toolbar.addView(gameControls);
+        toolbar.addView(aiControls);
+        bleControls = new LinearLayout(this);
+        bleControls.setOrientation(LinearLayout.VERTICAL);
+        bleControls.addView(horizontalControls(bridgeBar));
+        toolbar.addView(bleControls);
+        bleControls.setVisibility(View.GONE);
+        aiControls.setVisibility(View.GONE);
         commandScroll.addView(toolbar);
         root.addView(commandScroll, new LinearLayout.LayoutParams(-1, dp(248)));
         gameHeading = new TextView(this);
@@ -264,13 +278,16 @@ public final class MainActivity extends Activity {
         });
         stop.setOnClickListener(v -> touchAgent.stop());
         load.setOnClickListener(v -> browser.loadUrl("https://www.xbox.com/play"));
-        gameTab.setOnClickListener(v -> browser.loadUrl("https://www.xbox.com/play"));
+        gameTab.setOnClickListener(v -> {
+            showSection("game");
+            browser.loadUrl("https://www.xbox.com/play");
+        });
         aiTab.setOnClickListener(v -> {
-            commandScroll.smoothScrollTo(0, dp(180));
+            showSection("ai");
             status.setText("AI controls: set Gemini key, verify capture, then start experimental visual AI.");
         });
         controllerTab.setOnClickListener(v -> {
-            commandScroll.smoothScrollTo(0, dp(180));
+            showSection("ble");
             status.setText("BLE controls: connect SKB controller, then run the short input test. Hardware not verified.");
         });
         toolsTab.setOnClickListener(v -> startActivity(new Intent(this, SimulatorActivity.class)));
@@ -279,6 +296,13 @@ public final class MainActivity extends Activity {
             result -> status.setText("Gamepad diagnostic: " + result)));
         fullscreenButton.setOnClickListener(v -> setFullscreen(true));
         labButton.setOnClickListener(v -> startActivity(new Intent(this, SimulatorActivity.class)));
+    }
+
+    private void showSection(String section) {
+        gameControls.setVisibility("game".equals(section) ? View.VISIBLE : View.GONE);
+        aiControls.setVisibility("ai".equals(section) ? View.VISIBLE : View.GONE);
+        bleControls.setVisibility("ble".equals(section) ? View.VISIBLE : View.GONE);
+        commandScroll.smoothScrollTo(0, 0);
     }
 
     private int dp(int value) {
