@@ -28,6 +28,7 @@ public final class MainActivity extends Activity {
     private LinearLayout toolbar;
     private ScrollView commandScroll;
     private TextView gameHeading;
+    private TextView brandHeading;
     private LinearLayout gameControls, aiControls, bleControls;
     private boolean fullscreen = false;
     private android.widget.FrameLayout gameFrame;
@@ -58,8 +59,20 @@ public final class MainActivity extends Activity {
         status.setPadding(dp(14), dp(12), dp(14), dp(12));
         status.setTextSize(13);
         status.setBackgroundColor(Color.rgb(25, 36, 49));
-        TextView brandHeading = new TextView(this);
+        brandHeading = new TextView(this);
         brandHeading.setText("SKB   /   AI PLAYER PRO");
+        try {
+            java.io.InputStream logo = getAssets().open("skb_secure_hardware.png");
+            android.graphics.Bitmap logoBitmap = android.graphics.BitmapFactory.decodeStream(logo);
+            logo.close();
+            ImageView logoView = new ImageView(this);
+            logoView.setImageBitmap(logoBitmap);
+            logoView.setAdjustViewBounds(true);
+            logoView.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            toolbar.addView(logoView, new LinearLayout.LayoutParams(-1, dp(100)));
+        } catch (java.io.IOException ignored) {
+            // Original logo asset not yet bundled; retain accessible text heading.
+        }
         brandHeading.setTextColor(Color.rgb(174, 224, 255));
         brandHeading.setTextSize(21);
         brandHeading.setLetterSpacing(0.07f);
