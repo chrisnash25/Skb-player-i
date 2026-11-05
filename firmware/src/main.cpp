@@ -36,7 +36,7 @@ class Commands : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic *c) override {
     String data = c->getValue();
     // Exact 9-byte state packet; no unauthenticated text commands.
-    if (!connected || data.size() != sizeof(report)) return;
+    if (!connected || data.length() != sizeof(report)) return;
     memcpy(report,data.c_str(),sizeof(report));
         lastCommand = millis();
   }
