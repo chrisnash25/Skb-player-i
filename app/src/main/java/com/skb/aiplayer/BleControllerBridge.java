@@ -33,6 +33,8 @@ public final class BleControllerBridge implements ControllerEngine.Sink {
     private BluetoothGattCharacteristic command;
     private boolean scanning;
     private boolean connected;
+    private boolean writePending;
+    private byte[] latestPacket;
     private final ScanCallback scanCallback = new ScanCallback() {
         @Override public void onScanResult(int callbackType, ScanResult result) {
             BluetoothDevice device = result.getDevice();
@@ -54,7 +56,15 @@ public final class BleControllerBridge implements ControllerEngine.Sink {
                 g.discoverServices();
             } else {
                 connected = false; command = null;
+                synchronized (BleControllerBridge.this) { writePending = false; latestPacket = null; }
                 post("BLE disconnected (status " + status + ")");
+            }
+        }
+        @Override public void onCharacteristicWrite(BluetoothGatt g, BluetoothGattCharacteristic characteristic, int status) {
+            synchronized (BleControllerBridge.this) {
+                writePending = false;
+                if (status != BluetoothGatt.GATT_SUCCESS) post("BLE command write failed: " + status);
+                flushPacket();
             }
         }
         @Override public void onServicesDiscovered(BluetoothGatt g, int status) {
@@ -96,20 +106,34 @@ public final class BleControllerBridge implements ControllerEngine.Sink {
     @SuppressLint("MissingPermission")
     public void disconnect() {
         stopScan(); connected = false; command = null;
+        synchronized (this) { latestPacket = null; writePending = false; }
         if (gatt != null) { gatt.disconnect(); gatt.close(); gatt = null; }
     }
     private static int signed(float x) { return Math.round(Math.max(-1f, Math.min(1f, x)) * 127f) & 255; }
     private static int trigger(float x) { return Math.round(Math.max(0f, Math.min(1f, x)) * 255f) & 255; }
-    @Override @SuppressLint("MissingPermission")
-    public void send(float lx,float ly,float rx,float ry,float lt,float rt,int buttons) {
-        if (!isReady() || !hasPermission()) return;
-        byte[] packet = {(byte)buttons,(byte)(buttons >>> 8),(byte)signed(lx),(byte)signed(ly),
-                (byte)signed(rx),(byte)signed(ry),(byte)trigger(lt),(byte)trigger(rt)};
+    @SuppressLint("MissingPermission")
+    private synchronized void flushPacket() {
+        if (writePending || latestPacket == null || !isReady() || gatt == null || !hasPermission()) return;
+        byte[] packet = latestPacket;
+        latestPacket = null;
+        boolean accepted;
         if (Build.VERSION.SDK_INT >= 33) {
-            gatt.writeCharacteristic(command,packet,BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
+            accepted = gatt.writeCharacteristic(command, packet,
+                BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT) == android.bluetooth.BluetoothStatusCodes.SUCCESS;
         } else {
             command.setWriteType(BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT);
-            command.setValue(packet); gatt.writeCharacteristic(command);
+            command.setValue(packet);
+            accepted = gatt.writeCharacteristic(command);
         }
+        writePending = accepted;
+        if (!accepted) post("BLE write not accepted; check connection");
+    }
+
+    @Override @SuppressLint("MissingPermission")
+    public synchronized void send(float lx,float ly,float rx,float ry,float lt,float rt,int buttons) {
+        if (!isReady() || !hasPermission()) return;
+        latestPacket = new byte[]{(byte)buttons,(byte)(buttons >>> 8),(byte)signed(lx),(byte)signed(ly),
+                (byte)signed(rx),(byte)signed(ry),(byte)trigger(lt),(byte)trigger(rt)};
+        flushPacket();
     }
 }
