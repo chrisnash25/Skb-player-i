@@ -90,6 +90,7 @@ public final class MainActivity extends Activity {
         Button previewCapture = new Button(this); previewCapture.setText("Verify Game Vision");
         Button bridgeStatus = new Button(this); bridgeStatus.setText("Connect SKB BLE");
         Button bridgeTest = new Button(this); bridgeTest.setText("Test BLE input");
+        Button diagnostics = new Button(this); diagnostics.setText("Diagnostics");
         bar.addView(load); bar.addView(test); bar.addView(fullscreenButton); bar.addView(labButton);
         LinearLayout agentBar = new LinearLayout(this);
         agentBar.addView(calibrate); agentBar.addView(auto); agentBar.addView(stop);
@@ -104,6 +105,7 @@ public final class MainActivity extends Activity {
         LinearLayout bridgeBar = new LinearLayout(this);
         bridgeBar.addView(bridgeStatus);
         bridgeBar.addView(bridgeTest);
+        bridgeBar.addView(diagnostics);
         aiControls = new LinearLayout(this);
         aiControls.setOrientation(LinearLayout.VERTICAL);
         aiControls.addView(horizontalControls(aiBar));
@@ -175,6 +177,19 @@ public final class MainActivity extends Activity {
         controllerEngine = new ControllerEngine();
         bleBridge = new BleControllerBridge(this, message -> status.setText(message));
         controllerEngine.setSink(bleBridge);
+        diagnostics.setOnClickListener(v -> {
+            String report = "SKB AI PLAYER PRO — LIVE DIAGNOSTICS\n"
+                + "Android: " + android.os.Build.VERSION.RELEASE + " (SDK " + android.os.Build.VERSION.SDK_INT + ")\n"
+                + "Bluetooth permission: " + (bleBridge.hasPermission() ? "granted" : "not granted") + "\n"
+                + "SKB BLE GATT: " + (bleBridge.isReady() ? "ready" : "not connected") + "\n"
+                + "Controller engine: " + (controllerEngine.isActive() ? "active" : "stopped") + "\n"
+                + "Gemini key: " + (geminiKey.isEmpty() ? "not configured" : "configured") + "\n"
+                + "Visual agent: " + (visualAgent.isRunning() ? "running" : "stopped") + "\n"
+                + "Game page: " + (browser.getUrl() == null ? "not loaded" : browser.getUrl()) + "\n"
+                + "Xbox stream and HID output: require physical verification.";
+            new AlertDialog.Builder(this).setTitle("Device diagnostics")
+                .setMessage(report).setPositiveButton("Close", null).show();
+        });
         bridgeTest.setOnClickListener(v -> {
             if (!bleBridge.isReady()) { status.setText("Connect SKB BLE first"); return; }
             controllerEngine.start();
