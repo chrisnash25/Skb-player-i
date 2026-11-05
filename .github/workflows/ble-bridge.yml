@@ -1,0 +1,30 @@
+name: SKB BLE Bridge firmware
+on:
+  push:
+    branches: [feature/skb-ble-controller-bridge]
+    paths:
+      - 'firmware/**'
+      - '.github/workflows/ble-bridge.yml'
+  workflow_dispatch:
+jobs:
+  protocol:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python3 -m unittest discover -s firmware/tests -v
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install platformio
+      - run: pio run -d firmware -e m5stickc-plus2-bridge
+      - uses: actions/upload-artifact@v4
+        with:
+          name: skb-m5stick-ble-experimental
+          path: firmware/.pio/build/m5stickc-plus2-bridge/firmware.bin
